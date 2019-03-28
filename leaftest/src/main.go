@@ -1,10 +1,13 @@
-// main.go project main.go.go
-package main.go
+package main
 
 import (
 	"github.com/name5566/leaf"
+	"game"
+
 )
 
 func main() {
-	
+	leaf.Run(
+		game.Module,
+	)
 }
