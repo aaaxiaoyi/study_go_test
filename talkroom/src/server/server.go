@@ -1,69 +1,56 @@
 package main
 
-import (
+import(
 	"fmt"
 	"net"
-	"os"
-	"strconv"
 	"strings"
-	"time"
 )
 
-func checkError(err error) {
-	if err !=  nil {
-		fmt.Fprintf(os.Stderr, "Fatal error:%s", err.Error())
+func connHandler(c net.Conn) {
+	if c == nil {
+		return
 	}
-}
-
-func handleClient(conn net.Conn)  {
-	conn.SetReadDeadline(time.Now().Add(time.Minute))
-	request := make([]byte, 128)
-	defer conn.Close()
+	buf := make([]byte, 4096)
 	for {
-		read_len, err := conn.Read(request)
-		if err !=nil {
-			fmt.Println(err)
+		cnt, err := c.Read(buf)
+		if err != nil || cnt == 0{
+			c.Close()
 			break
 		}
-		if read_len == 0 {
+
+		inStr := strings.TrimSpace(string(buf[0:cnt]))
+		inputs := strings.Split(inStr, " ")
+		switch inputs[0] {
+		case "ping":
+			c.Write([]byte("pong\n"))
+		case "echo":
+			echoStr := strings.Join(inputs[1:], " ") + "\n"
+			c.Write([]byte(echoStr))
+		case "quit":
+			c.Close()
 			break
-		} else if strings.TrimSpace(string(request[:read_len])) == "timestamp" {
-			daytime := strconv.FormatInt(time.Now().Unix(), 10)
-			conn.Write([]byte("timestamp\n"))
-			conn.Write([]byte(daytime))
-		} else {
-			daytime := time.Now().String()
-			conn.Write([]byte(daytime))
+		default:
+			fmt.Printf("unsupported command:%s\n", inputs[0])
 		}
-
 	}
-/*	res, err := ioutil.ReadAll(conn)
-	checkError(err)
-	fmt.Println(string(res))
-
-	conn.Write([]byte("welcome to server"))
-	conn.Write([]byte(time.Now().String()))*/
+	fmt.Printf("Connection from %v closed\n", c.RemoteAddr())
 }
 
-func main()  {
-	service := ":7777"
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-	checkError(err)
-	listener, err := net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
+func main() {
+	server, err := net.Listen("tcp", ":1208")
+	if err != nil {
+		fmt.Printf("fail to start server, %s\n", err)
+	}
+	fmt.Println("server start")
+
 	for {
-		conn, err := listener.Accept()
+		conn, err := server.Accept()
 		if err != nil {
-			continue
+			fmt.Printf("fail to connect, err\n", err)
+			break
 		}
-		go handleClient(conn)
-/*		res, err := ioutil.ReadAll(conn)
-		checkError(err)
-		fmt.Println(string(res))
-
-		daytime := time.Now().String()
-		conn.Write([]byte(daytime))
-		conn.Close()*/
+		go connHandler(conn)
 	}
-
 }
+
+

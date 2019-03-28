@@ -1,43 +1,38 @@
 package main
-
-import (
+import(
+	"bufio"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 )
 
-func checkError(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "fatal error:%s", err.Error())
-		os.Exit(1)
+func connHandler(c net.Conn) {
+	defer c.Close()
+	reader := bufio.NewReader(os.Stdin)
+	buf := make([]byte, 1024)
+	for{
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "quit" {
+			return
+		}
+
+		c.Write([]byte(input))
+		cnt, err := c.Read(buf)
+		if err != nil {
+			fmt.Printf("fail to read data, %s\n", err)
+			continue
+		}
+		fmt.Print(string(buf[0:cnt]))
 	}
 }
 
-
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage：%s\n", os.Args[0])
-		os.Exit(1)
+	conn, err := net.Dial("tcp", ":1208")
+	if err != nil {
+		fmt.Printf("fail to connect, %s\n", err)
+		return
 	}
-
-	service := os.Args[1]
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-	checkError(err)
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	checkError(err)
-	_, err = conn.Write([]byte("timestamp"))
-	checkError(err)
-	conn.CloseWrite()
-	result, err := ioutil.ReadAll(conn)
-	checkError(err)
-	fmt.Println(string(result))
-
-	_, err = conn.Write([]byte("time"))
-	checkError(err)
-	conn.CloseWrite()
-	result, err = ioutil.ReadAll(conn)
-	checkError(err)
-	fmt.Println(string(result))
-	os.Exit(0)
+	connHandler(conn)
 }
